@@ -1,61 +1,27 @@
-const path = require("path");
-const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
-const { init: initDB, Counter } = require("./db");
+const http = require('http');
+const httpProxy = require('http-proxy');
 
-const logger = morgan("tiny");
+const proxy = httpProxy.createProxyServer({});
+const targetServer = 'http://www.lubantec.com';
 
-const app = express();
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
-app.use(cors());
-app.use(logger);
-
-// 首页
-app.get("/", async (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-// 更新计数
-app.post("/api/count", async (req, res) => {
-  const { action } = req.body;
-  if (action === "inc") {
-    await Counter.create();
-  } else if (action === "clear") {
-    await Counter.destroy({
-      truncate: true,
-    });
+const server = http.createServer((req, res) => {
+  // 处理微信小程序调用，获取微信 Open ID
+  if (req.url === '/api/wx_openid' && req.headers['x-wx-source']) {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(req.headers['x-wx-openid']);
+    return;
   }
-  res.send({
-    code: 0,
-    data: await Counter.count(),
-  });
-});
 
-// 获取计数
-app.get("/api/count", async (req, res) => {
-  const result = await Counter.count();
-  res.send({
-    code: 0,
-    data: result,
+  // 将请求转发到另一个代理服务器
+  proxy.web(req, res, { target: targetServer }, (err) => {
+    console.error('代理请求错误:', err);
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('代理请求错误');
   });
-});
-
-// 小程序调用，获取微信 Open ID
-app.get("/api/wx_openid", async (req, res) => {
-  if (req.headers["x-wx-source"]) {
-    res.send(req.headers["x-wx-openid"]);
-  }
 });
 
 const port = process.env.PORT || 80;
 
-async function bootstrap() {
-  await initDB();
-  app.listen(port, () => {
-    console.log("启动成功", port);
-  });
-}
-
-bootstrap();
+server.listen(port, () => {
+  console.log('代理服务器启动成功，监听端口', port);
+});
