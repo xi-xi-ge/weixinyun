@@ -2,7 +2,7 @@ const http = require('http');
 const httpProxy = require('http-proxy');
 
 const proxy = httpProxy.createProxyServer({});
-const targetServer = 'http://www.lubantec.com';
+const targetServer = 'https://www.luban-tec.com';
 
 const server = http.createServer((req, res) => {
   // 处理微信小程序调用，获取微信 Open ID
